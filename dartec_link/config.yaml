@@ -1,6 +1,11 @@
 name: Dartec Link
-version: "0.1.0"
+version: "0.2.0"
 slug: dartec_link
+# Pull a prebuilt image instead of compiling on the customer's hardware.
+# {arch} is filled in by the Supervisor; the TAG comes from `version:` above,
+# so bumping the version without publishing that tag is a failed install in
+# someone's house. The workflow derives the tag from this file for that reason.
+image: ghcr.io/kaboomae/dartec-addons/{arch}-dartec-link
 description: >-
   Connects this home to Dartec over an encrypted private network, so it can be
   reached for support without being published to the internet.

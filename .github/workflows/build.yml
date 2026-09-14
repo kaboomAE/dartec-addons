@@ -1,0 +1,99 @@
+# Build Dartec Link once, here, instead of on every customer's box.
+#
+# The first version of this add-on published no image, so the Supervisor built
+# the Dockerfile on the home's own hardware. That was a deliberate trade --
+# no pipeline to stand up before the first home could move -- and it was the
+# wrong one. A build on a small box is slow enough to look like a hang, and it
+# puts a compiler, a package index and a network fetch between a customer and
+# a working install, any of which can fail in a house we cannot see.
+#
+# One image per architecture, tagged with the add-on's own version, because
+# that is what the Supervisor pulls: `image:` in config.yaml carries an {arch}
+# placeholder and no tag, and the tag comes from `version:`.
+#
+# THE PACKAGES MUST BE PUBLIC. ghcr packages are private by default even in a
+# public repository, and a private one fails to pull in a customer's home with
+# an authentication error that looks nothing like the real cause. See README.
+
+name: Build add-on images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dartec_link/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false        # one arch failing should not hide the others
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: amd64
+            platform: linux/amd64
+          - arch: armv7
+            platform: linux/arm/v7
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the add-on version
+        id: meta
+        run: |
+          set -euo pipefail
+          # The image tag MUST equal config.yaml's version: that is the tag the
+          # Supervisor asks for. A mismatch is a pull failure in a customer's
+          # home, so it is derived here rather than typed twice.
+          version="$(grep -E '^version:' dartec_link/config.yaml | sed 's/version:[[:space:]]*//' | tr -d '"'"'"'')"
+          [ -n "$version" ] || { echo "no version in config.yaml"; exit 1; }
+          base="$(grep -E "^  ${{ matrix.arch }}:" dartec_link/build.yaml | sed 's/.*:[[:space:]]*//')"
+          [ -n "$base" ] || { echo "no build_from for ${{ matrix.arch }}"; exit 1; }
+          echo "version=$version"  >> "$GITHUB_OUTPUT"
+          echo "base=$base"        >> "$GITHUB_OUTPUT"
+          echo "Building ${{ matrix.arch }} v$version from $base" >> "$GITHUB_STEP_SUMMARY"
+
+      # Only needed for the arm builds; harmless on amd64.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: dartec_link
+          platforms: ${{ matrix.platform }}
+          push: true
+          # Same two args the Supervisor passes when it builds locally, so the
+          # Dockerfile does not need to know which of the two paths built it.
+          build-args: |
+            BUILD_FROM=${{ steps.meta.outputs.base }}
+            BUILD_ARCH=${{ matrix.arch }}
+          tags: |
+            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:${{ steps.meta.outputs.version }}
+            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:latest
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+
+      - name: Where it landed
+        run: |
+          {
+            echo ""
+            echo "\`ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:${{ steps.meta.outputs.version }}\`"
+            echo ""
+            echo "If a home cannot pull this, check the package is **public**:"
+            echo "<https://github.com/users/kaboomAE/packages/container/dartec-addons%2F${{ matrix.arch }}-dartec-link/settings>"
+          } >> "$GITHUB_STEP_SUMMARY"

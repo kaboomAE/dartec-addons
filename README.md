@@ -43,11 +43,29 @@ That single missing field is the whole reason for this add-on. Everything else
 here is a thin, boring wrapper around `tailscaled`. If you are not Dartec, you
 almost certainly want the official add-on instead.
 
-## Building
+## Images are prebuilt — and the packages must be PUBLIC
 
-There is no published image: `config.yaml` has no `image:` key, so the
-Supervisor builds the Dockerfile on the home's own hardware. Installing takes a
-few minutes on a Raspberry Pi rather than seconds.
+`.github/workflows/build.yml` builds one image per architecture and pushes it
+to ghcr on every change to `dartec_link/`. Installing is a pull, not a build:
+seconds, and no compiler, package index or network fetch between a customer
+and a working add-on.
+
+> **ghcr packages are private by default, even in a public repository.** A
+> private package fails to pull in a customer's home with an authentication
+> error that looks nothing like the real cause. After the first successful
+> build, set each of these to public — once, permanently:
+>
+> - [`aarch64-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Faarch64-dartec-link/settings)
+> - [`amd64-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Famd64-dartec-link/settings)
+> - [`armv7-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Farmv7-dartec-link/settings)
+
+**The image tag is `version:` from `config.yaml`.** Bumping the version without
+publishing that tag is a failed install in someone's house, so the workflow
+reads the version out of that file rather than having it typed twice.
+
+This replaced building on the home, which was the original arrangement and a
+bad trade: a build on a small box is slow enough to look like a hang, and it
+fails in ways nobody can see from here.
 
 Both the Tailscale version and the Home Assistant base images are pinned, and
 the Tailscale tarball is verified against its published SHA256 before it is
