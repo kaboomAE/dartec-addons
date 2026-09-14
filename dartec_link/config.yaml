@@ -1,5 +1,5 @@
 name: Dartec Link
-version: "0.2.0"
+version: "0.2.1"
 slug: dartec_link
 # Pull a prebuilt image instead of compiling on the customer's hardware.
 # {arch} is filled in by the Supervisor; the TAG comes from `version:` above,
@@ -49,5 +49,10 @@ schema:
   auth_key: password?
   hostname: str?
   accept_dns: bool?
+  # `str?`, not `str`. For a LIST option the Supervisor decides optionality
+  # from the INNER type -- its own comment reads "If its a list then value in
+  # list decides if its optional like ['str?']". Without the ?, a config that
+  # omits this key is rejected with "Missing option 'advertise_routes'", which
+  # is what the manager's first successful install hit.
   advertise_routes:
-    - str
+    - str?
