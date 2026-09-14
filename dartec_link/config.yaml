@@ -1,0 +1,48 @@
+name: Dartec Link
+version: "0.1.0"
+slug: dartec_link
+description: >-
+  Connects this home to Dartec over an encrypted private network, so it can be
+  reached for support without being published to the internet.
+url: https://github.com/kaboomAE/dartec-ha-manager
+# Shown to the customer in the add-on store. "service" keeps it out of the
+# categories a person browses for fun.
+stage: stable
+startup: services
+boot: auto
+init: false
+
+arch:
+  - aarch64
+  - amd64
+  - armv7
+
+# WireGuard needs the tun device and the ability to configure an interface.
+# host_network because the point is to give THIS host an address on the mesh;
+# a bridged container address would be useless to anything else in the house.
+host_network: true
+devices:
+  - /dev/net/tun
+privileged:
+  - NET_ADMIN
+  - NET_RAW
+
+# Node identity and key material live here, so a restart rejoins as the same
+# node instead of burning a single-use key and arriving as a stranger.
+# /data is the add-on's own persistent volume.
+options:
+  login_server: ""
+  auth_key: ""
+  hostname: ""
+  accept_dns: false
+  advertise_routes: []
+
+schema:
+  # `password` rather than `str` so the key is masked in the Supervisor UI and
+  # kept out of screenshots and screen-shares during an install.
+  login_server: url?
+  auth_key: password?
+  hostname: str?
+  accept_dns: bool?
+  advertise_routes:
+    - str
