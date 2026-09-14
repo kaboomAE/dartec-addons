@@ -1,0 +1,7 @@
+# Scripts here are executed inside a Linux container. A CRLF line ending on
+# the shebang turns "#!/usr/bin/with-contenv bashio" into a bad interpreter
+# error that names a file which plainly exists -- an expensive thing to debug.
+# This repo is authored on Windows, so pin it rather than rely on core.autocrlf.
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
