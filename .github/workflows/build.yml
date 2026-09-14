@@ -55,8 +55,21 @@ jobs:
           # home, so it is derived here rather than typed twice.
           version="$(grep -E '^version:' dartec_link/config.yaml | sed 's/version:[[:space:]]*//' | tr -d '"'"'"'')"
           [ -n "$version" ] || { echo "no version in config.yaml"; exit 1; }
-          base="$(grep -E "^  ${{ matrix.arch }}:" dartec_link/build.yaml | sed 's/.*:[[:space:]]*//')"
+          # Anchored on the arch key, NOT `.*:` -- a greedy match runs to the
+          # LAST colon, which is the one in the image's own tag, and yields
+          # "3.19" instead of the image. Docker then tries to pull
+          # docker.io/library/3.19 and fails with an authorization error that
+          # says nothing about the real problem.
+          base="$(sed -n "s|^  ${{ matrix.arch }}:[[:space:]]*||p" dartec_link/build.yaml)"
           [ -n "$base" ] || { echo "no build_from for ${{ matrix.arch }}"; exit 1; }
+          # An image reference has a registry or an org in it. A bare tag does
+          # not, and that is exactly what the bug above produced -- so check the
+          # shape here rather than letting Docker report it as a permissions
+          # failure three steps later.
+          case "$base" in
+            */*) : ;;
+            *) echo "build_from for ${{ matrix.arch }} is not an image: '$base'"; exit 1 ;;
+          esac
           echo "version=$version"  >> "$GITHUB_OUTPUT"
           echo "base=$base"        >> "$GITHUB_OUTPUT"
           echo "Building ${{ matrix.arch }} v$version from $base" >> "$GITHUB_STEP_SUMMARY"
