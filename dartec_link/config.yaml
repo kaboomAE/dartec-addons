@@ -1,5 +1,5 @@
 name: Dartec Link
-version: "0.2.1"
+version: "0.2.2"
 slug: dartec_link
 # Pull a prebuilt image instead of compiling on the customer's hardware.
 # {arch} is filled in by the Supervisor; the TAG comes from `version:` above,
