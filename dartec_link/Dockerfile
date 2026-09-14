@@ -11,6 +11,14 @@ ARG BUILD_ARCH
 # version moves when the base image moves, which is the thing we are pinning
 # against. Checked against the published SHA256 -- this binary gets NET_ADMIN
 # in a customer's home, so an unverified download is not acceptable here.
+# curl is NOT only a build dependency: bashio shells out to it for every
+# Supervisor API call. Removing it after the build left `bashio::config`
+# returning nothing, so the add-on read an empty login_server and stopped
+# itself -- with "curl: command not found" as the only clue. It stays.
+#
+# This note lives ABOVE the RUN rather than inside it: a # line within a
+# continuation is handled differently across Docker versions, and once the
+# continuations are joined a stray # comments out the rest of the command.
 RUN set -eux; \
     case "${BUILD_ARCH}" in \
       amd64)   TS_ARCH="amd64"  ;; \
@@ -28,8 +36,7 @@ RUN set -eux; \
     tar xzf ts.tgz; \
     install -m 755 "tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscaled" /usr/sbin/tailscaled; \
     install -m 755 "tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscale"  /usr/bin/tailscale; \
-    rm -rf /tmp/*; \
-    apk del curl
+    rm -rf /tmp/*
 
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
