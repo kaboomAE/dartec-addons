@@ -50,14 +50,18 @@ to ghcr on every change to `dartec_link/`. Installing is a pull, not a build:
 seconds, and no compiler, package index or network fetch between a customer
 and a working add-on.
 
-> **ghcr packages are private by default, even in a public repository.** A
-> private package fails to pull in a customer's home with an authentication
-> error that looks nothing like the real cause. After the first successful
-> build, set each of these to public — once, permanently:
->
-> - [`aarch64-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Faarch64-dartec-link/settings)
-> - [`amd64-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Famd64-dartec-link/settings)
-> - [`armv7-dartec-link`](https://github.com/users/kaboomAE/packages/container/dartec-addons%2Farmv7-dartec-link/settings)
+Verified pullable anonymously, which is what a customer's Supervisor does:
+
+```
+ghcr.io/kaboomae/dartec-addons/{aarch64,amd64,armv7}-dartec-link:<version>
+```
+
+> ghcr packages can be private even when their repository is public, and a
+> private one fails in a home with an authentication error that says nothing
+> about the real cause. These published public, so nothing needs doing — but
+> if a future arch or rename ever fails to pull, check that first, and check
+> it by fetching the manifest **without credentials** rather than by looking
+> at the package page while signed in.
 
 **The image tag is `version:` from `config.yaml`.** Bumping the version without
 publishing that tag is a failed install in someone's house, so the workflow
