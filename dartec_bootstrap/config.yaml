@@ -1,0 +1,39 @@
+name: Dartec Bootstrap
+version: "0.1.0"
+slug: dartec_bootstrap
+description: >-
+  One-shot installer used while a Dartec installer sets up this home. Installs
+  HACS and activates it, then stops. Remove it once setup is finished.
+url: https://github.com/kaboomAE/dartec-ha-manager
+stage: experimental
+# Runs once and exits; never starts on its own.
+startup: once
+boot: manual
+init: false
+
+arch:
+  - aarch64
+  - amd64
+
+# No `image:` on purpose while this is a test branch: the Supervisor builds the
+# Dockerfile on the box, so nothing has to be published to a registry first.
+
+# /core/stop and /core/start are all this needs from the Supervisor. The
+# `homeassistant` role allows exactly /core/.+ plus */info (Supervisor's
+# api/middleware/security.py), which is narrower than `manager`.
+hassio_api: true
+hassio_role: homeassistant
+
+# HACS lives in custom_components/ and its config entry in .storage/, so the
+# add-on needs Home Assistant's config directory writable. Mounted at
+# /homeassistant.
+map:
+  - type: homeassistant_config
+    read_only: false
+
+options:
+  github_token: ""
+
+schema:
+  # `password` so it is masked in the Supervisor UI during an install.
+  github_token: password
