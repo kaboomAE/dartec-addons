@@ -1,5 +1,5 @@
 name: Dartec Bootstrap
-version: "0.1.0"
+version: "0.1.1"
 slug: dartec_bootstrap
 description: >-
   One-shot installer used while a Dartec installer sets up this home. Installs
@@ -36,4 +36,6 @@ options:
 
 schema:
   # `password` so it is masked in the Supervisor UI during an install.
-  github_token: password
+  # Optional: only needed while the hacs entry still has to be written, so a
+  # clean-up run on a finished box does not hand the token over again.
+  github_token: password?
