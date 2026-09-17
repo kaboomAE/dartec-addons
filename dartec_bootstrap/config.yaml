@@ -1,5 +1,5 @@
 name: Dartec Bootstrap
-version: "0.1.1"
+version: "0.2.0"
 slug: dartec_bootstrap
 description: >-
   One-shot installer used while a Dartec installer sets up this home. Installs
@@ -33,9 +33,15 @@ map:
 
 options:
   github_token: ""
+  run_token: ""
 
 schema:
   # `password` so it is masked in the Supervisor UI during an install.
   # Optional: only needed while the hacs entry still has to be written, so a
   # clean-up run on a finished box does not hand the token over again.
   github_token: password?
+  # One-shot proof that the Dartec provisioner started this run:
+  # dartec1.<unix seconds>.<random>, at most 30 minutes old, never used before
+  # on this box. Without a valid one the add-on only cleans up. Both options
+  # are wiped from the Supervisor as soon as the add-on has read them.
+  run_token: password?
