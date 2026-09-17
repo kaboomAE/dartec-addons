@@ -1,4 +1,4 @@
-# Build Dartec Link once, here, instead of on every customer's box.
+# Build every add-on once, here, instead of on every customer's box.
 #
 # The first version of this add-on published no image, so the Supervisor built
 # the Dockerfile on the home's own hardware. That was a deliberate trade --
@@ -22,6 +22,7 @@ on:
     branches: [main]
     paths:
       - 'dartec_link/**'
+      - 'dartec_bootstrap/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
@@ -34,33 +35,57 @@ jobs:
 
     strategy:
       fail-fast: false        # one arch failing should not hide the others
+      # One row per (add-on, arch). An add-on is only listed for the arches
+      # its config.yaml declares; a missing image for a declared arch is a
+      # failed install, an extra one is merely unused.
       matrix:
         include:
-          - arch: aarch64
-            platform: linux/arm64
-          - arch: amd64
-            platform: linux/amd64
-          - arch: armv7
-            platform: linux/arm/v7
+          - { addon: dartec_link, image: dartec-link, arch: aarch64, platform: linux/arm64 }
+          - { addon: dartec_link, image: dartec-link, arch: amd64, platform: linux/amd64 }
+          - { addon: dartec_link, image: dartec-link, arch: armv7, platform: linux/arm/v7 }
+          - { addon: dartec_bootstrap, image: dartec-bootstrap, arch: aarch64, platform: linux/arm64 }
+          - { addon: dartec_bootstrap, image: dartec-bootstrap, arch: amd64, platform: linux/amd64 }
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A push rebuilds only the add-ons it changed. Rebuilding an unchanged
+      # add-on re-pushes its CURRENT version tag with a new digest, under
+      # homes that already run it; nothing about that is wanted. A manual
+      # run (workflow_dispatch) builds everything.
+      - name: Did this add-on change?
+        id: changed
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --quiet "$before" "${{ github.sha }}" -- "${{ matrix.addon }}/"; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "${{ matrix.addon }} unchanged; not rebuilt" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Read the add-on version
+        if: steps.changed.outputs.build == 'true'
         id: meta
         run: |
           set -euo pipefail
           # The image tag MUST equal config.yaml's version: that is the tag the
           # Supervisor asks for. A mismatch is a pull failure in a customer's
           # home, so it is derived here rather than typed twice.
-          version="$(grep -E '^version:' dartec_link/config.yaml | sed 's/version:[[:space:]]*//' | tr -d '"'"'"'')"
+          version="$(grep -E '^version:' ${{ matrix.addon }}/config.yaml | sed 's/version:[[:space:]]*//' | tr -d '"'"'"'')"
           [ -n "$version" ] || { echo "no version in config.yaml"; exit 1; }
           # Anchored on the arch key, NOT `.*:` -- a greedy match runs to the
           # LAST colon, which is the one in the image's own tag, and yields
           # "3.19" instead of the image. Docker then tries to pull
           # docker.io/library/3.19 and fails with an authorization error that
           # says nothing about the real problem.
-          base="$(sed -n "s|^  ${{ matrix.arch }}:[[:space:]]*||p" dartec_link/build.yaml)"
+          base="$(sed -n "s|^  ${{ matrix.arch }}:[[:space:]]*||p" ${{ matrix.addon }}/build.yaml)"
           [ -n "$base" ] || { echo "no build_from for ${{ matrix.arch }}"; exit 1; }
           # An image reference has a registry or an org in it. A bare tag does
           # not, and that is exactly what the bug above produced -- so check the
@@ -72,22 +97,26 @@ jobs:
           esac
           echo "version=$version"  >> "$GITHUB_OUTPUT"
           echo "base=$base"        >> "$GITHUB_OUTPUT"
-          echo "Building ${{ matrix.arch }} v$version from $base" >> "$GITHUB_STEP_SUMMARY"
+          echo "Building ${{ matrix.addon }} ${{ matrix.arch }} v$version from $base" >> "$GITHUB_STEP_SUMMARY"
 
       # Only needed for the arm builds; harmless on amd64.
       - uses: docker/setup-qemu-action@v3
+        if: steps.changed.outputs.build == 'true'
       - uses: docker/setup-buildx-action@v3
+        if: steps.changed.outputs.build == 'true'
 
       - uses: docker/login-action@v3
+        if: steps.changed.outputs.build == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        if: steps.changed.outputs.build == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: dartec_link
+          context: ${{ matrix.addon }}
           platforms: ${{ matrix.platform }}
           push: true
           # Same two args the Supervisor passes when it builds locally, so the
@@ -96,17 +125,18 @@ jobs:
             BUILD_FROM=${{ steps.meta.outputs.base }}
             BUILD_ARCH=${{ matrix.arch }}
           tags: |
-            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:${{ steps.meta.outputs.version }}
-            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:latest
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-${{ matrix.image }}:${{ steps.meta.outputs.version }}
+            ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.addon }}-${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.addon }}-${{ matrix.arch }},mode=max
 
       - name: Where it landed
+        if: steps.changed.outputs.build == 'true'
         run: |
           {
             echo ""
-            echo "\`ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-dartec-link:${{ steps.meta.outputs.version }}\`"
+            echo "\`ghcr.io/kaboomae/dartec-addons/${{ matrix.arch }}-${{ matrix.image }}:${{ steps.meta.outputs.version }}\`"
             echo ""
             echo "If a home cannot pull this, check the package is **public**:"
-            echo "<https://github.com/users/kaboomAE/packages/container/dartec-addons%2F${{ matrix.arch }}-dartec-link/settings>"
+            echo "<https://github.com/users/kaboomAE/packages/container/dartec-addons%2F${{ matrix.arch }}-${{ matrix.image }}/settings>"
           } >> "$GITHUB_STEP_SUMMARY"
