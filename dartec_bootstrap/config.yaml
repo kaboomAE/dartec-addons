@@ -1,0 +1,50 @@
+name: Dartec Bootstrap
+version: "0.2.0"
+slug: dartec_bootstrap
+description: >-
+  One-shot installer used while a Dartec installer sets up this home. Installs
+  HACS and activates it, then stops. Remove it once setup is finished.
+url: https://github.com/kaboomAE/dartec-ha-manager
+stage: experimental
+# Runs once and exits; never starts on its own.
+startup: once
+boot: manual
+init: false
+
+arch:
+  - aarch64
+  - amd64
+
+# Prebuilt, like dartec_link: the tag comes from `version:` above, and the
+# workflow derives it from this file. `stage: experimental` keeps it out of
+# the normal store view; the provisioner installs it by slug and removes it
+# again at the end of setup.
+image: ghcr.io/kaboomae/dartec-addons/{arch}-dartec-bootstrap
+
+# /core/stop and /core/start are all this needs from the Supervisor. The
+# `homeassistant` role allows exactly /core/.+ plus */info (Supervisor's
+# api/middleware/security.py), which is narrower than `manager`.
+hassio_api: true
+hassio_role: homeassistant
+
+# HACS lives in custom_components/ and its config entry in .storage/, so the
+# add-on needs Home Assistant's config directory writable. Mounted at
+# /homeassistant.
+map:
+  - type: homeassistant_config
+    read_only: false
+
+options:
+  github_token: ""
+  run_token: ""
+
+schema:
+  # `password` so it is masked in the Supervisor UI during an install.
+  # Optional: only needed while the hacs entry still has to be written, so a
+  # clean-up run on a finished box does not hand the token over again.
+  github_token: password?
+  # One-shot proof that the Dartec provisioner started this run:
+  # dartec1.<unix seconds>.<random>, at most 30 minutes old, never used before
+  # on this box. Without a valid one the add-on only cleans up. Both options
+  # are wiped from the Supervisor as soon as the add-on has read them.
+  run_token: password?

@@ -31,6 +31,21 @@ brute-force.
 
 See [dartec_link/DOCS.md](dartec_link/DOCS.md) for options and troubleshooting.
 
+### Dartec Bootstrap (installer only, hidden)
+
+A one-shot add-on the Dartec provisioner uses while setting up a home: it
+installs HACS and gives it its GitHub token, which HACS otherwise only accepts
+through GitHub's interactive device flow. It stops Home Assistant Core, adds a
+`hacs` config entry built from the shape of an existing entry, and starts Core
+again. It is `stage: experimental`, so it does not show in the normal store
+view, and the provisioner uninstalls it when setup is done.
+
+It **refuses to do anything but clean up** unless the provisioner passes a
+fresh `run_token` (`dartec1.<unix seconds>.<random>`, at most 30 minutes old,
+never used before on this box). It wipes both of its options from the
+Supervisor as soon as it has read them. Installing it by hand therefore never
+stops anyone's Core.
+
 ## Why this exists rather than the official Tailscale add-on
 
 The excellent [`hassio-addons/app-tailscale`](https://github.com/hassio-addons/app-tailscale)
@@ -46,7 +61,7 @@ almost certainly want the official add-on instead.
 ## Images are prebuilt — and the packages must be PUBLIC
 
 `.github/workflows/build.yml` builds one image per architecture and pushes it
-to ghcr on every change to `dartec_link/`. Installing is a pull, not a build:
+to ghcr on every change to an add-on's directory. Installing is a pull, not a build:
 seconds, and no compiler, package index or network fetch between a customer
 and a working add-on.
 
@@ -55,6 +70,9 @@ Verified pullable anonymously, which is what a customer's Supervisor does:
 ```
 ghcr.io/kaboomae/dartec-addons/{aarch64,amd64,armv7}-dartec-link:<version>
 ```
+
+`dartec-bootstrap` (aarch64, amd64) is new: **its packages start private and
+must be made public** after the first build, before any home can install it.
 
 > ghcr packages can be private even when their repository is public, and a
 > private one fails in a home with an authentication error that says nothing
