@@ -94,6 +94,22 @@ the Tailscale tarball is verified against its published SHA256 before it is
 installed — this binary runs with `NET_ADMIN` in someone's home, so an
 unverified download is not acceptable.
 
+## Store images
+
+Each add-on carries `icon.png` (128 x 128) and `logo.png` (250 x 100), the sizes
+Home Assistant recommends. They are the Dartec mark and lockup on the brand's
+cream ground, because the store shows them unchanged on both its light and dark
+themes and has no dark variant to fall back on.
+
+They are rendered, not drawn: the Dartec brand builder in the internal
+onboarding repository (`scripts/brand/build-icons.mjs --addons=<this checkout>`)
+produces all four from the brand's own SVGs. Regenerate them there rather than
+editing them by hand.
+
+The Supervisor reads these files from this repository, not from the image, so
+changing them never rebuilds or re-pushes an image (see the change check in
+`.github/workflows/build.yml`).
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
