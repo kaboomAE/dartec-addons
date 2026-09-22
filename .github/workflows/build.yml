@@ -55,6 +55,11 @@ jobs:
       # add-on re-pushes its CURRENT version tag with a new digest, under
       # homes that already run it; nothing about that is wanted. A manual
       # run (workflow_dispatch) builds everything.
+      #
+      # Files the Supervisor reads from this repository's checkout, never
+      # from the image, do not count as a change: the store icon and logo,
+      # the docs, the changelog and the translations. The Dockerfiles copy
+      # run.sh only, so none of these can alter an image.
       - name: Did this add-on change?
         id: changed
         run: |
@@ -63,7 +68,9 @@ jobs:
           if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if git diff --quiet "$before" "${{ github.sha }}" -- "${{ matrix.addon }}/"; then
+          a="${{ matrix.addon }}"
+          store_only=(":(exclude)$a/icon.png" ":(exclude)$a/logo.png" ":(exclude)$a/DOCS.md" ":(exclude)$a/CHANGELOG.md" ":(exclude)$a/translations")
+          if git diff --quiet "$before" "${{ github.sha }}" -- "$a/" "${store_only[@]}"; then
             echo "build=false" >> "$GITHUB_OUTPUT"
             echo "${{ matrix.addon }} unchanged; not rebuilt" >> "$GITHUB_STEP_SUMMARY"
           else
