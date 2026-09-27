@@ -74,6 +74,13 @@ jobs:
             echo "build=false" >> "$GITHUB_OUTPUT"
             echo "${{ matrix.addon }} unchanged; not rebuilt" >> "$GITHUB_STEP_SUMMARY"
           else
+            # An image that changes under an unchanged version is the same
+            # tag with new contents, pulled into homes that already trust
+            # it. Refuse; bump `version:` in config.yaml instead.
+            if ! git diff "$before" "${{ github.sha }}" -- "$a/config.yaml" | grep -qE '^\+version:'; then
+              echo "::error::$a changed but its config.yaml version did not; bump it so the old tag is not overwritten"
+              exit 1
+            fi
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 

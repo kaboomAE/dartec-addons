@@ -1,15 +1,22 @@
 #!/usr/bin/with-contenv bashio
 # Install HACS and activate it without GitHub's device flow.
 #
-# Download HACS, stop Core, add a `hacs` config entry that carries the GitHub
+# Unpack HACS, stop Core, add a `hacs` config entry that carries the GitHub
 # token, start Core. Never logs either secret.
+#
+# HACS is not downloaded here. The image carries the one release pinned in
+# hacs.pin, checked against its SHA-256 when the image was built, and it is
+# checked again below before a single file of it reaches custom_components.
 #
 # It only does that when given a fresh, never-used `run_token` from the
 # Dartec provisioner. Without one it only cleans up after an earlier run, so
 # installing it from the store by hand can never stop someone's Core.
 set -euo pipefail
 
-HACS_VERSION="2.0.5"
+# shellcheck source=hacs.pin
+. /opt/dartec/hacs.pin
+# shellcheck source=hacs.sh
+. /opt/dartec/hacs.sh
 CONFIG="/homeassistant"
 ENTRIES="${CONFIG}/.storage/core.config_entries"
 BACKUP="${ENTRIES}.dartec-bootstrap.bak"
@@ -94,14 +101,13 @@ fi
 if [ -f "${CONFIG}/custom_components/hacs/manifest.json" ]; then
     bashio::log.info "HACS files already present; not downloading."
 else
-    bashio::log.info "Downloading HACS ${HACS_VERSION}."
-    tmp="$(mktemp -d)"
-    curl -fsSL --max-time 300 -o "${tmp}/hacs.zip" \
-        "https://github.com/hacs/integration/releases/download/${HACS_VERSION}/hacs.zip"
-    mkdir -p "${CONFIG}/custom_components/hacs"
-    unzip -q -o "${tmp}/hacs.zip" -d "${CONFIG}/custom_components/hacs"
-    rm -rf "${tmp}"
-    bashio::log.info "HACS unpacked into custom_components/hacs."
+    bashio::log.info "Installing HACS ${HACS_VERSION}, pinned to SHA-256 ${HACS_SHA256}."
+    # A refusal stops here: Core has not been touched, and nothing of the
+    # archive is left in the config directory.
+    if ! why="$(hacs_unpack "${HACS_ARCHIVE}" "${CONFIG}")"; then
+        bashio::exit.nok "Refused the HACS archive: ${why}. Nothing was installed and Core was not stopped."
+    fi
+    bashio::log.info "HACS ${HACS_VERSION} verified and unpacked into custom_components/hacs."
 fi
 
 # --- 4. Write the entry with Core stopped ---------------------------------------

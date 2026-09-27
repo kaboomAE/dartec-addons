@@ -1,0 +1,39 @@
+# The add-ons install only the archives they pin (tests/). Builds images
+# locally to test them and pushes nothing; publishing is build.yml's job.
+#
+# Lives outside the add-on directories on purpose: build.yml rebuilds an
+# add-on when its directory changes, and a test is not a reason to re-push an
+# image under homes that already run it.
+
+name: Test add-ons
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'dartec_link/**'
+      - 'dartec_bootstrap/**'
+      - 'tests/**'
+      - '.github/workflows/test.yml'
+  # Weekly as well: a pin that stops matching what upstream publishes is worth
+  # hearing about before the next build needs it.
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tests/bootstrap_hacs_test.sh
+
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tests/link_tailscale_test.sh

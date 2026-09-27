@@ -89,10 +89,43 @@ This replaced building on the home, which was the original arrangement and a
 bad trade: a build on a small box is slow enough to look like a hang, and it
 fails in ways nobody can see from here.
 
-Both the Tailscale version and the Home Assistant base images are pinned, and
-the Tailscale tarball is verified against its published SHA256 before it is
-installed — this binary runs with `NET_ADMIN` in someone's home, so an
-unverified download is not acceptable.
+## Every archive is pinned by version and SHA-256
+
+An add-on installs nothing it has not pinned, twice over: by an exact release
+and by the SHA-256 of that release's bytes, both kept in this repository. A
+mismatch stops the build, so there is no image to pull; nothing is ever fetched
+by name alone, and nothing is fetched from anywhere but the expected
+project's own release.
+
+| What | Where it comes from | Pinned in | Checked |
+|---|---|---|---|
+| Tailscale (`tailscaled`, `tailscale`) in Dartec Link | `pkgs.tailscale.com/stable`, Tailscale's own packages | `dartec_link/Dockerfile`: `TAILSCALE_VERSION`, one `TAILSCALE_SHA256_*` per architecture | at build, against the pin and against the `.sha256` Tailscale publishes beside the tarball |
+| HACS in Dartec Bootstrap | `github.com/hacs/integration` release assets | `dartec_bootstrap/hacs.pin`: `HACS_VERSION`, `HACS_SHA256` | at build, and again in the home before a file of it is unpacked |
+
+Tailscale runs with `NET_ADMIN` in someone's home; HACS runs inside Home
+Assistant Core, with everything Core can reach. A checksum fetched from the
+same place as the archive would only prove the two agree, which is why the
+pin lives here.
+
+HACS publishes no checksum or signature, so `hacs.pin` carries Dartec's own,
+from a download checked against HACS's tagged source and the frontend's PyPI
+release; the file says how. **HACS is baked into the Bootstrap image**, so a
+home never downloads it: the add-on unpacks the copy the build verified, after
+checking it again.
+
+**Moving a pin is a release.** Change the version and the checksum in the
+same commit, bump `version:` in that add-on's `config.yaml`, and for HACS
+repeat the check described in `hacs.pin`. `build.yml` refuses to publish an
+add-on whose image changed while its version did not, since that would
+replace an image under homes that already run it.
+
+`tests/` builds both images and proves the refusals: a forged or modified HACS
+archive is not unpacked and Core is never stopped, and neither image builds
+around a wrong checksum. `.github/workflows/test.yml` runs them on every pull
+request and weekly, so a pin that stops matching what upstream publishes is
+noticed before a build needs it.
+
+Both Home Assistant base images are pinned by tag.
 
 ## Store images
 

@@ -1,0 +1,25 @@
+# The one HACS release this add-on installs, and the exact bytes of it.
+#
+# Read by the Dockerfile, which downloads the archive while the image is
+# built and refuses to build on any mismatch, and by run.sh, which checks the
+# copy baked into the image again before unpacking it into a home. Nothing in
+# a home downloads HACS any more.
+#
+# HACS publishes no checksum or signature for its release archive (the
+# GitHub asset has no digest either: it predates GitHub recording them), so
+# the SHA-256 below is Dartec's own, taken from a download that was checked
+# against HACS's source before it was pinned:
+#
+#   * every .py file matches tag 2.0.5 (c0dfd8b) of hacs/integration, apart
+#     from the two lines HACS's publish workflow rewrites at release time
+#     (MINIMUM_HA_VERSION in const.py, "version" in manifest.json);
+#   * hacs_frontend/ is identical to hacs_frontend-20250128065759 on PyPI,
+#     whose wheel matches PyPI's published SHA-256, plus two .pyc files
+#     whose bytecode matches their .py sources.
+#
+# Checked 2026-09-27. Changing either value is a new release of this add-on:
+# bump `version:` in config.yaml and repeat that check first. A version is a
+# release tag as HACS names it (2.0.5), never a branch, which moves.
+HACS_REPO="hacs/integration"
+HACS_VERSION="2.0.5"
+HACS_SHA256="97be6b824a4f38e683728cc6dd72367f6b8bad0a43428b1b3b987a3087adf413"
