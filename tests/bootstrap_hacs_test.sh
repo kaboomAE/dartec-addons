@@ -37,7 +37,19 @@ trap cleanup EXIT
 
 json() { "${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print($2)" "$1"; }
 pass() { echo "  PASS  $*"; }
-fail() { echo "  FAIL  $*"; failures=$((failures + 1)); }
+# A failed check shows what the add-on said and which Supervisor calls it made,
+# once per run: a failure in CI is otherwise a guess.
+shown=""
+fail() {
+    echo "  FAIL  $*"; failures=$((failures + 1))
+    if [ -n "${current:-}" ] && [ "${shown}" != "${current}" ] && [ -f "${current}.log" ]; then
+        shown="${current}"
+        echo "        --- ${current}: add-on log (last 25 lines)"
+        tail -25 "${current}.log" | sed 's/^/        /'
+        echo "        --- ${current}: Supervisor calls"
+        sed 's/^/        /' "${current}.calls" 2>/dev/null || true
+    fi
+}
 check() { local what="$1"; shift; if "$@"; then pass "${what}"; else fail "${what}"; fi; }
 
 cd "${work}"
@@ -74,6 +86,15 @@ docker create --name "${SUP}" --network "${NET}" --network-alias supervisor \
     python:3.12-alpine sh -c 'mkdir -p /log && python /fake_supervisor.py' >/dev/null
 docker cp "${here}/fake_supervisor.py" "${SUP}:/fake_supervisor.py"
 docker start "${SUP}" >/dev/null
+# The add-on finds it through /etc/hosts, not Docker's DNS: on GitHub's runners
+# the alias did not resolve on an --internal network, the add-on read no
+# options, and every run took the clean-up-only path.
+SUP_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${SUP}")"
+for _ in $(seq 1 30); do
+    docker exec "${SUP}" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1/ready')" \
+        >/dev/null 2>&1 && break
+    sleep 1
+done
 
 mkdir -p config/.storage data
 cat > config/.storage/core.config_entries <<'EOF'
@@ -88,7 +109,8 @@ EOF
 run() {
     local name="$1" archive="${2:-}" cont="dartec-bootstrap-run-$$-$1" code=0
     docker exec "${SUP}" sh -c ': > /log/calls'
-    docker create --name "${cont}" --network "${NET}" -e SUPERVISOR_TOKEN=test "${IMAGE}" >/dev/null
+    docker create --name "${cont}" --network "${NET}" --add-host "supervisor:${SUP_IP}" \
+        -e SUPERVISOR_TOKEN=test "${IMAGE}" >/dev/null
     docker cp config/. "${cont}:/homeassistant"
     docker cp data/. "${cont}:/data"     # the Supervisor mounts /data; nothing else creates it
     if [ -n "${archive}" ]; then
@@ -100,6 +122,7 @@ run() {
     docker exec "${SUP}" cat /log/calls > "${name}.calls"
     docker rm "${cont}" >/dev/null
     echo "${code}" > "${name}.code"
+    current="${name}"
 }
 
 no_core_stop() { ! grep -q '/core/stop' "$1.calls"; }
@@ -107,11 +130,14 @@ entries_untouched() { cmp -s config/.storage/core.config_entries "out/$1/.storag
 nothing_unpacked() { [ ! -e "out/$1/custom_components/hacs" ] && [ ! -e "out/$1/.dartec-bootstrap-hacs" ]; }
 refused_in_log() { grep -q 'Refused the HACS archive' "$1.log"; }
 failed() { [ "$(cat "$1.code")" != "0" ]; }
+# A run that never got its run_token does nothing and exits 0; that is not a pass.
+provisioning_run() { grep -q "GET /addons/self/options/config" "$1.calls" && ! grep -q "clean-up only" "$1.log"; }
 
 # The network is --internal: the add-on reaches the fake Supervisor and nothing
 # else, so a run that tried to fetch anything from GitHub would fail here.
 echo "== the genuine, pinned archive, with no route to the internet"
 run genuine
+check "the add-on read a fresh run_token"      provisioning_run genuine
 check "run succeeds"                          [ "$(cat genuine.code)" = "0" ]
 [ "$(cat genuine.code)" = "0" ] || tail -20 genuine.log | sed "s/^/        /"
 check "HACS ${HACS_VERSION} is in custom_components/hacs" \
@@ -125,6 +151,7 @@ check "Core was stopped and started" \
 for attack in forged backdoored empty; do
     echo "== a ${attack} archive in place of the release"
     run "${attack}" "${attack}.zip"
+    check "the add-on read a fresh run_token"     provisioning_run "${attack}"
     check "run fails"                             failed "${attack}"
     check "the log says the archive was refused"  refused_in_log "${attack}"
     check "nothing is unpacked"                   nothing_unpacked "${attack}"
