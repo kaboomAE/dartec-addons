@@ -37,7 +37,19 @@ trap cleanup EXIT
 
 json() { "${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print($2)" "$1"; }
 pass() { echo "  PASS  $*"; }
-fail() { echo "  FAIL  $*"; failures=$((failures + 1)); }
+# A failed check shows what the add-on said and which Supervisor calls it made,
+# once per run: a failure in CI is otherwise a guess.
+shown=""
+fail() {
+    echo "  FAIL  $*"; failures=$((failures + 1))
+    if [ -n "${current:-}" ] && [ "${shown}" != "${current}" ] && [ -f "${current}.log" ]; then
+        shown="${current}"
+        echo "        --- ${current}: add-on log (last 25 lines)"
+        tail -25 "${current}.log" | sed 's/^/        /'
+        echo "        --- ${current}: Supervisor calls"
+        sed 's/^/        /' "${current}.calls" 2>/dev/null || true
+    fi
+}
 check() { local what="$1"; shift; if "$@"; then pass "${what}"; else fail "${what}"; fi; }
 
 cd "${work}"
@@ -100,6 +112,7 @@ run() {
     docker exec "${SUP}" cat /log/calls > "${name}.calls"
     docker rm "${cont}" >/dev/null
     echo "${code}" > "${name}.code"
+    current="${name}"
 }
 
 no_core_stop() { ! grep -q '/core/stop' "$1.calls"; }
