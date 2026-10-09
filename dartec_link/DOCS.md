@@ -1,10 +1,10 @@
-# Dartec Link
+# Baytec Link
 
-Connects this home to Dartec over an encrypted private network (WireGuard, via
-Tailscale), so Dartec can reach it for support **without the home being
+Connects this home to Baytec over an encrypted private network (WireGuard, via
+Tailscale), so Baytec can reach it for support **without the home being
 published to the internet**.
 
-Nothing here is meant to be filled in by hand. The Dartec manager configures
+Nothing here is meant to be filled in by hand. The Baytec manager configures
 and starts this add-on remotely when a home is set up.
 
 ## What it replaces
@@ -23,7 +23,7 @@ scan, and the connection is direct rather than crossing a continent twice.
 
 | Option | What it does |
 |---|---|
-| `login_server` | The Dartec control plane. Set by the manager; required. |
+| `login_server` | The Baytec control plane. Set by the manager; required. |
 | `auth_key` | Single-use enrolment key, valid one hour. Masked in the UI. |
 | `hostname` | The name this home appears as. Defaults to the HA hostname. |
 | `accept_dns` | Off by default — see below. |

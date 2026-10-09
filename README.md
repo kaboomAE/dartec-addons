@@ -17,9 +17,12 @@ agent adds the repository and installs the add-on when the home is set up.
 
 ## Add-ons
 
-### Dartec Link
+### Baytec Link
 
-Connects a home to Dartec over an encrypted private network (WireGuard, via
+Slug `dartec_link`. Named Dartec Link before 0.2.5; the slug and the image
+keep the old name, because installed homes and the manager match on them.
+
+Connects a home to Baytec over an encrypted private network (WireGuard, via
 [Tailscale](https://tailscale.com)) so it can be reached for support **without
 being published to the internet**.
 

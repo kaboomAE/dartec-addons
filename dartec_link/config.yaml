@@ -1,5 +1,8 @@
-name: Dartec Link
-version: "0.2.4"
+# The name the store shows. The slug, the image and the repository keep their
+# dartec names: installed homes, the agent and the manager match on them
+# (`_dartec_link`), and a new slug would be a different add-on.
+name: Baytec Link
+version: "0.2.5"
 slug: dartec_link
 # Pull a prebuilt image instead of compiling on the customer's hardware.
 # {arch} is filled in by the Supervisor; the TAG comes from `version:` above,
@@ -7,7 +10,7 @@ slug: dartec_link
 # someone's house. The workflow derives the tag from this file for that reason.
 image: ghcr.io/kaboomae/dartec-addons/{arch}-dartec-link
 description: >-
-  Connects this home to Dartec over an encrypted private network, so it can be
+  Connects this home to Baytec over an encrypted private network, so it can be
   reached for support without being published to the internet.
 url: https://github.com/kaboomAE/dartec-ha-manager
 # Shown to the customer in the add-on store. "service" keeps it out of the
